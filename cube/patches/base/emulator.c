@@ -78,7 +78,7 @@ OSAlarm command_alarm = {0};
 #ifdef BBA
 void exi_interrupt_handler(OSInterrupt interrupt, OSContext *context);
 #endif
-#ifdef WKF
+#ifdef ODE
 void di_interrupt_handler(OSInterrupt interrupt, OSContext *context);
 #endif
 
@@ -832,7 +832,7 @@ OSInterruptHandler set_di_handler(OSInterrupt interrupt, OSInterruptHandler hand
 	#ifdef BBA
 	OSSetInterruptHandler(OS_INTERRUPT_EXI_2_EXI, exi_interrupt_handler);
 	#endif
-	#if defined DVD || defined WKF
+	#if defined DVD || defined ODE
 	OSSetInterruptHandler(OS_INTERRUPT_PI_DI, di_interrupt_handler);
 	#endif
 	return OSSetInterruptHandler(interrupt, handler);

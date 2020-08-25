@@ -67,47 +67,15 @@ s32 deviceHandler_GCLOADER_writeFile(file_handle* file, void* buffer, u32 length
 
 s32 deviceHandler_GCLOADER_setupFile(file_handle* file, file_handle* file2, int numToPatch) {
 	
-	// GCLoader disc/file fragment setup
-	s32 maxDiscFrags = MAX_GCLOADER_FRAGS_PER_DISC;
-	u32 discFragList[maxDiscFrags*3];
-	s32 disc1Frags = 0, disc2Frags = 0;
-
-	// If there is a disc 2 and it's fragmented, make a note of the fragments and their sizes
-	if(file2) {
-		devices[DEVICE_CUR]->seekFile(file2, 0, DEVICE_HANDLER_SEEK_SET);
-		devices[DEVICE_CUR]->readFile(file2, VAR_DISC_2_ID, sizeof(VAR_DISC_2_ID));
-		
-		if(!(disc2Frags = getFragments(file2, &discFragList[0], maxDiscFrags, 0, DISC_SIZE, DEVICE_CUR))) {
-			return 0;
-		}
-	}
-
-	// write disc 2 frags
-	gcloaderWriteFrags(1, &discFragList[0], disc2Frags);
-
-	devices[DEVICE_CUR]->seekFile(file, 0, DEVICE_HANDLER_SEEK_SET);
-	devices[DEVICE_CUR]->readFile(file, VAR_DISC_1_ID, sizeof(VAR_DISC_1_ID));
+	// If there are 2 discs, we only allow 21 fragments per disc.
+	int maxFrags = (sizeof(VAR_FRAG_LIST)/12), i = 0;
+	vu32 *fragList = (vu32*)VAR_FRAG_LIST;
+	s32 frags = 0, totFrags = 0;
 	
-	// If disc 1 is fragmented, make a note of the fragments and their sizes
-	if(!(disc1Frags = getFragments(file, &discFragList[0], maxDiscFrags, 0, DISC_SIZE, DEVICE_CUR))) {
-		return 0;
-	}
-	
-	// write disc 1 frags
-    gcloaderWriteFrags(0, &discFragList[0], disc1Frags);
-	
-    // set disc 1 as active disc
-    gcloaderWriteDiscNum(0);
-
-	// Set up Swiss game patches using a patch supporting device
 	memset(VAR_FRAG_LIST, 0, sizeof(VAR_FRAG_LIST));
 
 	// Check if there are any fragments in our patch location for this game
 	if(devices[DEVICE_PATCHES] != NULL) {
-		int maxFrags = (sizeof(VAR_FRAG_LIST)/12), i = 0;
-		vu32 *fragList = (vu32*)VAR_FRAG_LIST;
-		s32 frags = 0, totFrags = 0;
-		
 		print_gecko("Save Patch device found\r\n");
 		
 		// Look for patch files, if we find some, open them and add them as fragments
@@ -168,7 +136,23 @@ s32 deviceHandler_GCLOADER_setupFile(file_handle* file, file_handle* file2, int 
 		*(vu8*)VAR_EXI_SLOT = EXI_CHANNEL_MAX;
 		*(vu32**)VAR_EXI_REGS = NULL;
 	}
-
+	
+	// If disc 1 is fragmented, make a note of the fragments and their sizes
+	if(!(frags = getFragments(file, &fragList[totFrags*3], maxFrags-totFrags, 0, DISC_SIZE, DEVICE_CUR))) {
+		return 0;
+	}
+	totFrags += frags;
+	
+	// If there is a disc 2 and it's fragmented, make a note of the fragments and their sizes
+	if(file2) {
+		// TODO fix 2 disc patched games
+		if(!(frags = getFragments(file2, &fragList[totFrags*3], maxFrags-totFrags, 0x80000000, DISC_SIZE, DEVICE_CUR))) {
+			return 0;
+		}
+		totFrags += frags;
+	}
+	
+	print_frag_list(0);
 	return 1;
 }
 
@@ -231,7 +215,7 @@ DEVICEHANDLER_INTERFACE __device_gcloader = {
 	"Supported File System(s): FAT16, FAT32, exFAT",
 	{TEX_GCLOADER, 116, 72},
 	FEAT_READ|FEAT_BOOT_GCM|FEAT_BOOT_DEVICE|FEAT_AUTOLOAD_DOL|FEAT_FAT_FUNCS|FEAT_HYPERVISOR|FEAT_AUDIO_STREAMING,
-	EMU_NONE,
+	EMU_READ|EMU_AUDIO_STREAMING,
 	LOC_DVD_CONNECTOR,
 	&initial_GCLOADER,
 	(_fn_test)&deviceHandler_GCLOADER_test,

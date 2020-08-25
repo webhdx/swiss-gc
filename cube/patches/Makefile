@@ -12,7 +12,7 @@ DEST    = ../swiss/source/patches
 DISASM    = disassembly
 
 .NOTPARALLEL:
-all: dvdpatch hddpatch sdpatch usbpatch wkfpatch bbapatch
+all: dvdpatch hddpatch sdpatch usbpatch wkfpatch bbapatch gcodepatch
 
 dvdpatch: clean build-dvd
 hddpatch: clean build-ideexi-v1 clean build-ideexi-v2
@@ -20,6 +20,7 @@ sdpatch: clean build-sd
 usbpatch: clean build-usb
 wkfpatch: clean build-wkf
 bbapatch: clean build-bba
+gcodepatch: clean build-gcode
 
 clean:
 	@rm -rf *.o
@@ -128,7 +129,7 @@ build-usb:
 build-wkf:
 	@echo Building WKF Patch ...
 	@$(CC) -Os $(OPTS) -c base/base.S
-	@$(CC) -Os $(OPTS) -c base/emulator.c -DASYNC_READ -DDTK -DWKF
+	@$(CC) -Os $(OPTS) -c base/emulator.c -DASYNC_READ -DDTK -DODE
 	@$(CC) -Os $(OPTS) -c base/fifo.c
 	@$(CC) -Os $(OPTS) -c base/igr.c
 	@$(CC) -Os $(OPTS) -c wkf/wkf.c
@@ -160,5 +161,25 @@ build-bba:
 	@$(OBJDUMP) -D bba.elf > $(DISASM)/bba_disasm.txt
 	@$(OBJCOPY) -O binary bba.elf bba.bin
 	@$(BIN2S) bba.bin > $(DEST)/BBAPatch.s
+	@rm *.bin
+	@rm *.elf
+
+build-gcode:
+	@echo Building GCLoader Patch ...
+	@$(CC) -Os $(OPTS) -c base/base.S
+	@$(CC) -Os $(OPTS) -c base/emulator.c -DASYNC_READ -DDTK -DODE
+	@$(CC) -Os $(OPTS) -c base/fifo.c
+	@$(CC) -Os $(OPTS) -c base/igr.c
+	@$(CC) -Os $(OPTS) -c gcloader/gcloader.c
+	@$(CC) -Os $(OPTS) -c sdgecko/sd.c -DSINGLE_SECTOR=1
+	@$(CC) -Os $(OPTS) -c base/audio.c
+	@$(CC) -Os $(OPTS) -c base/frag.c -DPATCH_FRAGS=1
+	@$(CC) -Os $(OPTS) -c base/usbgecko.c
+	@$(CC) -Os $(OPTS) -c base/dolphin/os.c
+	@$(CC) -Os $(OPTS) -o gcloader.elf -T base/base.ld -T base/common.ld -T base/dolphin/os.ld base.o emulator.o fifo.o igr.o gcloader.o sd.o audio.o frag.o usbgecko.o os.o
+	@rm -rf *.o
+	@$(OBJDUMP) -D gcloader.elf > $(DISASM)/gcloader_disasm.txt
+	@$(OBJCOPY) -O binary gcloader.elf gcloader.bin
+	@$(BIN2S) gcloader.bin > $(DEST)/GCLoaderPatch.s
 	@rm *.bin
 	@rm *.elf
