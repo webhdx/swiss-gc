@@ -15,6 +15,7 @@
 #include "main.h"
 #include "usbgecko.h"
 #include "patcher.h"
+#include "input.h"
 
 #define NO_PC (-1)
 
@@ -174,7 +175,7 @@ s32 deviceHandler_USBGecko_setupFile(file_handle* file, file_handle* file2, Exec
 
 s32 deviceHandler_USBGecko_init(file_handle* file) {
 	s32 res = 0;
-	uiDrawObj_t *msgBox = DrawPublish(DrawProgressBar(true, 0, "Waiting for PC ..."));
+	uiDrawObj_t *msgBox = DrawPublish(DrawProgressBar(true, 0, "Waiting for PC... Hold B to cancel"));
 	if(usb_isgeckoalive(1)) {
 		s32 retries = 1000;
 		
@@ -182,8 +183,13 @@ s32 deviceHandler_USBGecko_init(file_handle* file) {
 		usbgecko_lock_file(0);
 		// Wait for the PC and retry 1000 times
 		while(!usbgecko_pc_ready() && retries) {
-			VIDEO_WaitVSync();
 			retries--;
+			
+			if (padsButtonsHeld() & PAD_BUTTON_B) {
+				retries = 0;
+			} else {
+				VIDEO_WaitVSync();
+			}
 		}
 		if(!retries) {
 			file->status = NO_PC;
